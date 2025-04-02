@@ -8,42 +8,37 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
-  Card,
-  CardContent,
-  CardActions,
-  Chip,
-  Stack,
-  Select,
   MenuItem,
   FormControl,
   InputLabel,
-  useTheme,
-  useMediaQuery
+  Select,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { db } from '../db';
 import { Lesson, Student } from '../types';
-import { formatDate, formatDuration } from '../utils/format';
+import { formatDate, formatTime, formatDuration, formatCurrency, calculateLessonCost } from '../utils/format';
 
 export default function Lessons() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [open, setOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Partial<Lesson>>({
+    date: new Date(),
+    duration: 60,
+    status: 'completed',
     studentId: '',
-    date: '',
-    duration: '',
-    subject: '',
-    status: 'completed' as const,
-    notes: ''
+    cost: 0,
   });
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     loadLessons();
@@ -51,35 +46,27 @@ export default function Lessons() {
   }, []);
 
   const loadLessons = async () => {
-    const allLessons = await db.lessons.toArray();
-    setLessons(allLessons);
+    const data = await db.lessons.toArray();
+    setLessons(data);
   };
 
   const loadStudents = async () => {
-    const allStudents = await db.students.toArray();
-    setStudents(allStudents);
+    const data = await db.students.toArray();
+    setStudents(data);
   };
 
   const handleOpen = (lesson?: Lesson) => {
     if (lesson) {
       setEditingLesson(lesson);
-      setFormData({
-        studentId: lesson.studentId.toString(),
-        date: lesson.date,
-        duration: lesson.duration.toString(),
-        subject: lesson.subject,
-        status: lesson.status,
-        notes: lesson.notes || ''
-      });
+      setFormData(lesson);
     } else {
       setEditingLesson(null);
       setFormData({
-        studentId: '',
-        date: '',
-        duration: '',
-        subject: '',
+        date: new Date(),
+        duration: 60,
         status: 'completed',
-        notes: ''
+        studentId: '',
+        cost: 0,
       });
     }
     setOpen(true);
@@ -91,199 +78,164 @@ export default function Lessons() {
   };
 
   const handleSubmit = async () => {
-    const lessonData = {
-      ...formData,
-      studentId: Number(formData.studentId),
-      duration: Number(formData.duration)
-    };
-
     if (editingLesson) {
-      await db.lessons.update(editingLesson.id!, lessonData);
+      await db.lessons.update(editingLesson.id, formData);
     } else {
-      await db.lessons.add(lessonData);
+      await db.lessons.add(formData as Lesson);
     }
     handleClose();
     loadLessons();
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Вы уверены, что хотите удалить это занятие?')) {
       await db.lessons.delete(id);
       loadLessons();
     }
   };
 
-  const getStudentName = (studentId: number) => {
+  const handleStudentChange = (studentId: string) => {
     const student = students.find(s => s.id === studentId);
-    return student ? student.name : 'Неизвестный ученик';
+    if (student) {
+      const cost = calculateLessonCost(student.rate, formData.duration || 60);
+      setFormData({ ...formData, studentId, cost });
+    }
+  };
+
+  const handleDurationChange = (duration: number) => {
+    const student = students.find(s => s.id === formData.studentId);
+    if (student) {
+      const cost = calculateLessonCost(student.rate, duration);
+      setFormData({ ...formData, duration, cost });
+    }
   };
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        mb: 3 
-      }}>
-        <Typography variant="h5" component="h1">
-          Занятия
-        </Typography>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+        <Typography variant="h4">Занятия</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpen()}
-          sx={{ borderRadius: 2 }}
         >
-          Добавить
+          Добавить занятие
         </Button>
       </Box>
 
-      <Grid container spacing={2}>
-        {lessons.map((lesson) => (
-          <Grid item xs={12} sm={6} md={4} key={lesson.id}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                borderRadius: 2,
-                boxShadow: 1
-              }}
-            >
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Stack spacing={1}>
-                  <Typography variant="h6" component="h2">
-                    {getStudentName(lesson.studentId)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {formatDate(lesson.date)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {lesson.subject} • {formatDuration(lesson.duration)}
-                  </Typography>
-                  <Chip 
-                    label={lesson.status === 'completed' ? 'Проведено' : 'Отменено'}
-                    color={lesson.status === 'completed' ? 'success' : 'error'}
-                    size="small"
-                    sx={{ alignSelf: 'flex-start' }}
-                  />
-                  {lesson.notes && (
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary"
-                      sx={{ 
-                        mt: 1,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      {lesson.notes}
-                    </Typography>
-                  )}
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ p: 1, pt: 0 }}>
-                <IconButton 
-                  size="small" 
-                  onClick={() => handleOpen(lesson)}
-                  sx={{ color: 'primary.main' }}
-                >
-                  <EditIcon />
-                </IconButton>
-                <IconButton 
-                  size="small" 
-                  onClick={() => handleDelete(lesson.id!)}
-                  sx={{ color: 'error.main' }}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Дата</TableCell>
+              <TableCell>Время</TableCell>
+              <TableCell>Ученик</TableCell>
+              <TableCell>Длительность</TableCell>
+              <TableCell>Статус</TableCell>
+              <TableCell>Стоимость</TableCell>
+              <TableCell>Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {lessons.map((lesson) => {
+              const student = students.find(s => s.id === lesson.studentId);
+              return (
+                <TableRow key={lesson.id}>
+                  <TableCell>{formatDate(lesson.date)}</TableCell>
+                  <TableCell>{formatTime(lesson.date)}</TableCell>
+                  <TableCell>
+                    {student ? `${student.firstName} ${student.lastName}` : 'Неизвестно'}
+                  </TableCell>
+                  <TableCell>{formatDuration(lesson.duration)}</TableCell>
+                  <TableCell>
+                    {lesson.status === 'completed' ? 'Проведено' : 'Отменено'}
+                  </TableCell>
+                  <TableCell>{formatCurrency(lesson.cost)}</TableCell>
+                  <TableCell>
+                    <IconButton onClick={() => handleOpen(lesson)}>
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton onClick={() => handleDelete(lesson.id)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      <Dialog 
-        open={open} 
-        onClose={handleClose}
-        fullScreen={isMobile}
-        maxWidth="sm"
-        fullWidth
-      >
+      <Dialog open={open} onClose={handleClose}>
         <DialogTitle>
           {editingLesson ? 'Редактировать занятие' : 'Добавить занятие'}
         </DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <FormControl fullWidth required>
-              <InputLabel>Ученик</InputLabel>
-              <Select
-                value={formData.studentId}
-                label="Ученик"
-                onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-              >
-                {students.map((student) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Дата"
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              fullWidth
-              required
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Длительность (минут)"
-              type="number"
-              value={formData.duration}
-              onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Предмет"
-              value={formData.subject}
-              onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-              fullWidth
-              required
-            />
-            <FormControl fullWidth required>
-              <InputLabel>Статус</InputLabel>
-              <Select
-                value={formData.status}
-                label="Статус"
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'completed' | 'cancelled' })}
-              >
-                <MenuItem value="completed">Проведено</MenuItem>
-                <MenuItem value="cancelled">Отменено</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              label="Заметки"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              fullWidth
-              multiline
-              rows={3}
-            />
-          </Stack>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Дата и время"
+                type="datetime-local"
+                value={formData.date ? new Date(formData.date).toISOString().slice(0, 16) : ''}
+                onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Ученик</InputLabel>
+                <Select
+                  value={formData.studentId}
+                  label="Ученик"
+                  onChange={(e) => handleStudentChange(e.target.value)}
+                >
+                  {students.map((student) => (
+                    <MenuItem key={student.id} value={student.id}>
+                      {student.firstName} {student.lastName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Длительность (мин)"
+                type="number"
+                value={formData.duration}
+                onChange={(e) => handleDurationChange(Number(e.target.value))}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl fullWidth>
+                <InputLabel>Статус</InputLabel>
+                <Select
+                  value={formData.status}
+                  label="Статус"
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'completed' | 'cancelled' })}
+                >
+                  <MenuItem value="completed">Проведено</MenuItem>
+                  <MenuItem value="cancelled">Отменено</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Стоимость"
+                value={formData.cost}
+                disabled
+                InputProps={{
+                  readOnly: true,
+                }}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions>
           <Button onClick={handleClose}>Отмена</Button>
-          <Button 
-            variant="contained" 
-            onClick={handleSubmit}
-            disabled={!formData.studentId || !formData.date || !formData.duration || !formData.subject}
-          >
+          <Button onClick={handleSubmit} variant="contained">
             {editingLesson ? 'Сохранить' : 'Добавить'}
           </Button>
         </DialogActions>

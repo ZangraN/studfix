@@ -7,23 +7,19 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'StudFix',
         short_name: 'StudFix',
-        description: 'Приложение для управления учениками и занятиями',
-        theme_color: '#1976d2',
-        start_url: '/',
-        display: 'standalone',
-        background_color: '#ffffff',
+        description: 'Приложение для учета учеников и занятий',
+        theme_color: '#ffffff',
         icons: [
           {
-            src: '/icon-192x192.png',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/icon-512x512.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png'
           }
@@ -35,9 +31,5 @@ export default defineConfig({
     alias: {
       '@': '/src'
     }
-  },
-  server: {
-    host: true,
-    port: 5173
   }
 }) 

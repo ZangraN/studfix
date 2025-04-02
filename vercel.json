@@ -5,7 +5,7 @@
       "destination": "/index.html"
     }
   ],
-  "buildCommand": "npm run build",
+  "buildCommand": "tsc --skipLibCheck && vite build",
   "outputDirectory": "dist",
   "framework": "vite"
 } 

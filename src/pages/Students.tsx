@@ -8,63 +8,56 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
-  Card,
-  CardContent,
-  CardActions,
-  Chip,
-  Stack,
-  useTheme,
-  useMediaQuery
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { db } from '../db';
 import { Student } from '../types';
+import { formatCurrency } from '../utils/format';
 
 export default function Students() {
   const [students, setStudents] = useState<Student[]>([]);
   const [open, setOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
+  const [formData, setFormData] = useState<Partial<Student>>({
+    firstName: '',
+    lastName: '',
     phone: '',
     email: '',
-    tariff: '',
-    notes: ''
+    subject: '',
+    rate: 0,
   });
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     loadStudents();
   }, []);
 
   const loadStudents = async () => {
-    const allStudents = await db.students.toArray();
-    setStudents(allStudents);
+    const data = await db.students.toArray();
+    setStudents(data);
   };
 
   const handleOpen = (student?: Student) => {
     if (student) {
       setEditingStudent(student);
-      setFormData({
-        name: student.name,
-        phone: student.phone || '',
-        email: student.email || '',
-        tariff: student.tariff || '',
-        notes: student.notes || ''
-      });
+      setFormData(student);
     } else {
       setEditingStudent(null);
       setFormData({
-        name: '',
+        firstName: '',
+        lastName: '',
         phone: '',
         email: '',
-        tariff: '',
-        notes: ''
+        subject: '',
+        rate: 0,
       });
     }
     setOpen(true);
@@ -76,24 +69,16 @@ export default function Students() {
   };
 
   const handleSubmit = async () => {
-    const studentData = {
-      ...formData,
-      phone: formData.phone || '',
-      email: formData.email || '',
-      tariff: formData.tariff || '',
-      notes: formData.notes || ''
-    };
-
     if (editingStudent) {
-      await db.students.update(editingStudent.id!, studentData);
+      await db.students.update(editingStudent.id, formData);
     } else {
-      await db.students.add(studentData);
+      await db.students.add(formData as Student);
     }
     handleClose();
     loadStudents();
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Вы уверены, что хотите удалить этого ученика?')) {
       await db.students.delete(id);
       loadStudents();
@@ -101,152 +86,114 @@ export default function Students() {
   };
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        mb: 3 
-      }}>
-        <Typography variant="h5" component="h1">
-          Ученики
-        </Typography>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+        <Typography variant="h4">Ученики</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpen()}
-          sx={{ borderRadius: 2 }}
         >
-          Добавить
+          Добавить ученика
         </Button>
       </Box>
 
-      <Grid container spacing={2}>
-        {students.map((student) => (
-          <Grid item xs={12} sm={6} md={4} key={student.id}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                borderRadius: 2,
-                boxShadow: 1
-              }}
-            >
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Stack spacing={1}>
-                  <Typography variant="h6" component="h2">
-                    {student.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {student.phone}
-                  </Typography>
-                  {student.email && (
-                    <Typography variant="body2" color="text.secondary">
-                      {student.email}
-                    </Typography>
-                  )}
-                  <Chip 
-                    label={`Тариф: ${student.tariff} ₽`}
-                    color="primary"
-                    size="small"
-                    sx={{ alignSelf: 'flex-start' }}
-                  />
-                  {student.notes && (
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary"
-                      sx={{ 
-                        mt: 1,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      {student.notes}
-                    </Typography>
-                  )}
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ p: 1, pt: 0 }}>
-                <IconButton 
-                  size="small" 
-                  onClick={() => handleOpen(student)}
-                  sx={{ color: 'primary.main' }}
-                >
-                  <EditIcon />
-                </IconButton>
-                <IconButton 
-                  size="small" 
-                  onClick={() => handleDelete(student.id!)}
-                  sx={{ color: 'error.main' }}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Имя</TableCell>
+              <TableCell>Фамилия</TableCell>
+              <TableCell>Телефон</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Предмет</TableCell>
+              <TableCell>Тариф (час)</TableCell>
+              <TableCell>Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {students.map((student) => (
+              <TableRow key={student.id}>
+                <TableCell>{student.firstName}</TableCell>
+                <TableCell>{student.lastName}</TableCell>
+                <TableCell>{student.phone}</TableCell>
+                <TableCell>{student.email}</TableCell>
+                <TableCell>{student.subject}</TableCell>
+                <TableCell>{formatCurrency(student.rate)}</TableCell>
+                <TableCell>
+                  <IconButton onClick={() => handleOpen(student)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDelete(student.id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      <Dialog 
-        open={open} 
-        onClose={handleClose}
-        fullScreen={isMobile}
-        maxWidth="sm"
-        fullWidth
-      >
+      <Dialog open={open} onClose={handleClose}>
         <DialogTitle>
           {editingStudent ? 'Редактировать ученика' : 'Добавить ученика'}
         </DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Имя"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Телефон"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              fullWidth
-            />
-            <TextField
-              label="Тариф"
-              value={formData.tariff}
-              onChange={(e) => setFormData({ ...formData, tariff: e.target.value })}
-              fullWidth
-              required
-              type="number"
-            />
-            <TextField
-              label="Заметки"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              fullWidth
-              multiline
-              rows={3}
-            />
-          </Stack>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Имя"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Фамилия"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Телефон"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Предмет"
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Тариф (час)"
+                type="number"
+                value={formData.rate}
+                onChange={(e) => setFormData({ ...formData, rate: Number(e.target.value) })}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions>
           <Button onClick={handleClose}>Отмена</Button>
-          <Button 
-            variant="contained" 
-            onClick={handleSubmit}
-            disabled={!formData.name || !formData.phone || !formData.tariff}
-          >
+          <Button onClick={handleSubmit} variant="contained">
             {editingStudent ? 'Сохранить' : 'Добавить'}
           </Button>
         </DialogActions>
