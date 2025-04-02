@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ThemeProvider, CssBaseline, Box, Paper, BottomNavigation, BottomNavigationAction, useTheme } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, Paper, BottomNavigation, BottomNavigationAction } from '@mui/material';
 import { theme } from './theme';
-import { Students } from './pages/Students';
-import { Lessons } from './pages/Lessons';
-import { Payments } from './pages/Payments';
-import { Statistics } from './pages/Statistics';
+import Students from './pages/Students';
+import Lessons from './pages/Lessons';
+import Payments from './pages/Payments';
+import Statistics from './pages/Statistics';
 import PeopleIcon from '@mui/icons-material/People';
 import SchoolIcon from '@mui/icons-material/School';
 import PaymentIcon from '@mui/icons-material/Payment';
@@ -12,7 +12,6 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('students');
-  const theme = useTheme();
 
   const renderPage = () => {
     switch (currentPage) {

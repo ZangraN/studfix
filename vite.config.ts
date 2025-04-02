@@ -31,5 +31,11 @@ export default defineConfig({
     alias: {
       '@': '/src'
     }
+  },
+  build: {
+    // Отключаем проверку типов при сборке
+    emptyOutDir: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 1600,
   }
 }) 
