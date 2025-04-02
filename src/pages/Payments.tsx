@@ -102,7 +102,10 @@ export default function Payments() {
       ...formData,
       studentId: Number(formData.studentId),
       lessonId: formData.lessonId ? Number(formData.lessonId) : undefined,
-      amount: Number(formData.amount)
+      amount: Number(formData.amount),
+      date: formData.date,
+      type: formData.type as 'cash' | 'card' | 'transfer',
+      notes: formData.notes || ''
     };
 
     if (editingPayment) {

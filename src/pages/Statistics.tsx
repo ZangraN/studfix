@@ -47,12 +47,10 @@ type Period = 'week' | 'month' | 'year';
 export default function Statistics() {
   const [period, setPeriod] = useState<Period>('month');
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalLessons, setTotalLessons] = useState(0);
   const [averageLessonCost, setAverageLessonCost] = useState(0);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     loadData();
@@ -85,11 +83,10 @@ export default function Statistics() {
     );
 
     setPayments(filteredPayments);
-    setLessons(filteredLessons);
+    setTotalLessons(filteredLessons.length);
 
     const income = filteredPayments.reduce((sum, payment) => sum + payment.amount, 0);
     setTotalIncome(income);
-    setTotalLessons(filteredLessons.length);
     setAverageLessonCost(filteredLessons.length > 0 ? income / filteredLessons.length : 0);
   };
 

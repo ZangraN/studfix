@@ -2,9 +2,9 @@ export interface Student {
   id?: number;
   name: string;
   phone: string;
-  email?: string;
+  email: string;
   tariff: string;
-  notes?: string;
+  notes: string;
 }
 
 export interface Lesson {
@@ -25,4 +25,10 @@ export interface Payment {
   date: string;
   type: 'cash' | 'card' | 'transfer';
   notes?: string;
+}
+
+export interface Statistics {
+  totalIncome: number;
+  totalLessons: number;
+  averageLessonCost: number;
 } 

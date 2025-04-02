@@ -1,17 +1,21 @@
 import { useState } from 'react';
-import { ThemeProvider, CssBaseline, Box, Paper, BottomNavigation, BottomNavigationAction } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, BottomNavigation, BottomNavigationAction, AppBar, Toolbar, IconButton, Drawer } from '@mui/material';
 import { theme } from './theme';
 import Students from './pages/Students';
 import Lessons from './pages/Lessons';
 import Payments from './pages/Payments';
 import Statistics from './pages/Statistics';
 import PeopleIcon from '@mui/icons-material/People';
-import SchoolIcon from '@mui/icons-material/School';
 import PaymentIcon from '@mui/icons-material/Payment';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import EventIcon from '@mui/icons-material/Event';
+import MenuIcon from '@mui/icons-material/Menu';
+import Typography from '@mui/material/Typography';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('students');
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerWidth] = useState(250);
 
   const renderPage = () => {
     switch (currentPage) {
@@ -28,41 +32,95 @@ function App() {
     }
   };
 
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const handlePageChange = (_event: React.SyntheticEvent, newValue: string) => {
+    setCurrentPage(newValue);
+    if (mobileOpen) {
+      setMobileOpen(false);
+    }
+  };
+
+  const DrawerContent = () => (
+    <div>
+      {/* Drawer content implementation */}
+    </div>
+  );
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        height: '100vh',
-        pb: 7 // Отступ для нижней навигации
-      }}>
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            flex: 1, 
-            overflow: 'auto',
-            bgcolor: 'background.default'
+      <Box sx={{ display: 'flex' }}>
+        <AppBar position="fixed">
+          <Toolbar>
+            <IconButton
+              color="inherit"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { sm: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" noWrap component="div">
+              StudFix
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <Box
+          component="nav"
+          sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        >
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={handleDrawerToggle}
+            ModalProps={{
+              keepMounted: true,
+            }}
+            sx={{
+              display: { xs: 'block', sm: 'none' },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            }}
+          >
+            <DrawerContent />
+          </Drawer>
+          <Drawer
+            variant="permanent"
+            sx={{
+              display: { xs: 'none', sm: 'block' },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            }}
+            open
+          >
+            <DrawerContent />
+          </Drawer>
+        </Box>
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            p: 3,
+            width: { sm: `calc(100% - ${drawerWidth}px)` },
+            mt: 8
           }}
         >
           {renderPage()}
-        </Paper>
+        </Box>
         <BottomNavigation
           value={currentPage}
-          onChange={(event, newValue) => setCurrentPage(newValue)}
+          onChange={handlePageChange}
           showLabels
           sx={{
             position: 'fixed',
             bottom: 0,
             left: 0,
             right: 0,
+            display: { sm: 'none' },
             bgcolor: 'background.paper',
             borderTop: 1,
-            borderColor: 'divider',
-            '& .MuiBottomNavigationAction-root': {
-              minWidth: 'auto',
-              p: 1
-            }
+            borderColor: 'divider'
           }}
         >
           <BottomNavigationAction
@@ -73,7 +131,7 @@ function App() {
           <BottomNavigationAction
             label="Занятия"
             value="lessons"
-            icon={<SchoolIcon />}
+            icon={<EventIcon />}
           />
           <BottomNavigationAction
             label="Платежи"

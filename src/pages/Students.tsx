@@ -52,10 +52,10 @@ export default function Students() {
       setEditingStudent(student);
       setFormData({
         name: student.name,
-        phone: student.phone,
-        email: student.email,
-        tariff: student.tariff,
-        notes: student.notes
+        phone: student.phone || '',
+        email: student.email || '',
+        tariff: student.tariff || '',
+        notes: student.notes || ''
       });
     } else {
       setEditingStudent(null);
@@ -76,10 +76,18 @@ export default function Students() {
   };
 
   const handleSubmit = async () => {
+    const studentData = {
+      ...formData,
+      phone: formData.phone || '',
+      email: formData.email || '',
+      tariff: formData.tariff || '',
+      notes: formData.notes || ''
+    };
+
     if (editingStudent) {
-      await db.students.update(editingStudent.id!, formData);
+      await db.students.update(editingStudent.id!, studentData);
     } else {
-      await db.students.add(formData);
+      await db.students.add(studentData);
     }
     handleClose();
     loadStudents();
