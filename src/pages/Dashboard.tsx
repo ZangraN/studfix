@@ -1,115 +1,239 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Grid,
-  Typography,
   Card,
   CardContent,
-  Stack,
-  useTheme,
-  useMediaQuery
+  Typography,
+  Grid,
+  useMediaQuery,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Avatar,
+  Chip,
+  Stack
 } from '@mui/material';
-import { db } from '../db';
+import { theme } from '../theme';
 import { Student, Lesson, Payment } from '../types';
-import { formatCurrency } from '../utils/format';
+import { School as SchoolIcon, Payment as PaymentIcon } from '@mui/icons-material';
 
-export default function Dashboard() {
-  const [stats, setStats] = useState<Statistics>({
-    totalIncome: 0,
-    totalStudents: 0,
-    totalLessons: 0,
-    totalPayments: 0,
-    incomeByPeriod: [],
-  });
+const Dashboard: React.FC = () => {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
-    const loadStats = async () => {
-      const students = await db.students.count();
-      const lessons = await db.lessons.count();
-      const payments = await db.payments.count();
-      
-      const totalIncome = await db.payments.toArray()
-        .then(payments => payments.reduce((sum, payment) => sum + payment.amount, 0));
-
-      // Получаем доход по дням за последние 7 дней
-      const today = new Date();
-      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
-      const incomeByPeriod = await db.payments
-        .where('date')
-        .between(lastWeek, today)
-        .toArray()
-        .then(payments => {
-          const dailyIncome = new Map<string, number>();
-          payments.forEach(payment => {
-            const date = payment.date.toISOString().split('T')[0];
-            dailyIncome.set(date, (dailyIncome.get(date) || 0) + payment.amount);
-          });
-          return Array.from(dailyIncome.entries()).map(([date, amount]) => ({
-            date,
-            amount,
-          }));
-        });
-
-      setStats({
-        totalIncome,
-        totalStudents: students,
-        totalLessons: lessons,
-        totalPayments: payments,
-        incomeByPeriod,
-      });
-    };
-
-    loadStats();
+    loadData();
   }, []);
 
+  const loadData = async () => {
+    try {
+      const [studentsRes, lessonsRes, paymentsRes] = await Promise.all([
+        fetch('/api/students'),
+        fetch('/api/lessons'),
+        fetch('/api/payments')
+      ]);
+
+      const studentsData = await studentsRes.json();
+      const lessonsData = await lessonsRes.json();
+      const paymentsData = await paymentsRes.json();
+
+      setStudents(studentsData);
+      setLessons(lessonsData);
+      setPayments(paymentsData);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    }
+  };
+
+  const getUpcomingLessons = () => {
+    const today = new Date();
+    return lessons
+      .filter(lesson => {
+        const lessonDate = new Date(lesson.date);
+        return lessonDate > today;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateA.getTime() - dateB.getTime();
+      })
+      .slice(0, 5);
+  };
+
+  const getRecentPayments = () => {
+    return payments
+      .sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      })
+      .slice(0, 5);
+  };
+
+  const getStudentName = (studentId: number) => {
+    const student = students.find(s => s.id === studentId);
+    return student ? `${student.firstName} ${student.lastName}` : 'Неизвестный ученик';
+  };
+
+  const getPaymentTypeLabel = (type: string) => {
+    switch (type) {
+      case 'cash':
+        return 'Наличные';
+      case 'card':
+        return 'Карта';
+      case 'transfer':
+        return 'Перевод';
+      default:
+        return type;
+    }
+  };
+
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Дашборд
+    <Box sx={{ p: isMobile ? 1 : 2 }}>
+      <Typography variant="h5" gutterBottom>
+        Главная
       </Typography>
-      <Grid container spacing={3}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2 }}>
+
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card elevation={2}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Всего учеников
+              </Typography>
+              <Typography variant="h4">
+                {students.length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card elevation={2}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Всего занятий
+              </Typography>
+              <Typography variant="h4">
+                {lessons.length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card elevation={2}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Общий доход
+              </Typography>
+              <Typography variant="h4">
+                {payments.reduce((sum, payment) => sum + payment.amount, 0).toLocaleString('ru-RU')} ₽
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Paper elevation={2} sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Общий доход
+              Ближайшие занятия
             </Typography>
-            <Typography variant="h4">
-              {formatCurrency(stats.totalIncome)}
-            </Typography>
+            <List>
+              {getUpcomingLessons().map((lesson) => (
+                <ListItem key={lesson.id}>
+                  <ListItemAvatar>
+                    <Avatar>
+                      <SchoolIcon />
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={getStudentName(lesson.studentId)}
+                    secondary={
+                      <Box>
+                        <Typography variant="body2">
+                          {new Date(lesson.date).toLocaleString('ru-RU', {
+                            day: 'numeric',
+                            month: 'long',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                          <Chip
+                            label={lesson.topic}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                          <Chip
+                            label={lesson.duration}
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                          />
+                        </Stack>
+                      </Box>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2 }}>
+
+        <Grid item xs={12} md={6}>
+          <Paper elevation={2} sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Всего учеников
+              Последние платежи
             </Typography>
-            <Typography variant="h4">
-              {stats.totalStudents}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Всего занятий
-            </Typography>
-            <Typography variant="h4">
-              {stats.totalLessons}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Всего платежей
-            </Typography>
-            <Typography variant="h4">
-              {stats.totalPayments}
-            </Typography>
+            <List>
+              {getRecentPayments().map((payment) => (
+                <ListItem key={payment.id}>
+                  <ListItemAvatar>
+                    <Avatar>
+                      <PaymentIcon />
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={getStudentName(payment.studentId)}
+                    secondary={
+                      <Box>
+                        <Typography variant="body2">
+                          {new Date(payment.date).toLocaleString('ru-RU', {
+                            day: 'numeric',
+                            month: 'long',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                          <Chip
+                            label={`${payment.amount.toLocaleString('ru-RU')} ₽`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                          <Chip
+                            label={getPaymentTypeLabel(payment.type)}
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                          />
+                        </Stack>
+                      </Box>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
           </Paper>
         </Grid>
       </Grid>
     </Box>
   );
-} 
+};
+
+export default Dashboard; 

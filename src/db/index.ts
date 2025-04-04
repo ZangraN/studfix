@@ -8,10 +8,21 @@ export class StudFixDB extends Dexie {
 
   constructor() {
     super('StudFixDB');
-    this.version(1).stores({
-      students: '++id, firstName, lastName, phone, email, subject, rate',
-      lessons: '++id, date, duration, status, studentId, cost',
-      payments: '++id, date, type, studentId, lessonId, amount',
+    this.version(3).stores({
+      students: '++id, firstName, lastName, phone, email, subject, rate, tariff',
+      lessons: '++id, studentId, date, duration, topic, understanding, status, cost',
+      payments: '++id, studentId, lessonId, date, type, amount'
+    });
+
+    // Добавляем индексы для связей
+    this.students.hook('creating', function (primKey, obj) {
+      if (!obj.schedule) obj.schedule = { day: '', time: '' };
+      return obj;
+    });
+
+    this.students.hook('updating', function (modifications, primKey, obj) {
+      if (!obj.schedule) obj.schedule = { day: '', time: '' };
+      return modifications;
     });
   }
 }

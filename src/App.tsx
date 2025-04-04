@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ThemeProvider, CssBaseline, Box, Paper, BottomNavigation, BottomNavigationAction } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { ThemeProvider, CssBaseline, Box, Paper, BottomNavigation, BottomNavigationAction, Typography, useMediaQuery } from '@mui/material';
 import { theme } from './theme';
 import Students from './pages/Students';
 import Lessons from './pages/Lessons';
@@ -12,8 +12,39 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('students');
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+
+  useEffect(() => {
+    if (isDesktop) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+  }, [isDesktop]);
 
   const renderPage = () => {
+    if (isDesktop) {
+      return (
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          p: 2,
+          textAlign: 'center'
+        }}>
+          <Typography variant="h4" gutterBottom>
+            Мобильная версия не поддерживается
+          </Typography>
+          <Typography variant="body1">
+            Пожалуйста, используйте приложение на мобильном устройстве
+          </Typography>
+        </Box>
+      );
+    }
+
     switch (currentPage) {
       case 'students':
         return <Students />;
@@ -39,7 +70,7 @@ function App() {
         display: 'flex', 
         flexDirection: 'column',
         height: '100vh',
-        pb: 7 // Отступ для нижней навигации
+        pb: isMobile ? 7 : 0
       }}>
         <Paper 
           elevation={0} 
@@ -51,45 +82,47 @@ function App() {
         >
           {renderPage()}
         </Paper>
-        <BottomNavigation
-          value={currentPage}
-          onChange={handlePageChange}
-          showLabels
-          sx={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            bgcolor: 'background.paper',
-            borderTop: 1,
-            borderColor: 'divider',
-            '& .MuiBottomNavigationAction-root': {
-              minWidth: 'auto',
-              p: 1
-            }
-          }}
-        >
-          <BottomNavigationAction
-            label="Ученики"
-            value="students"
-            icon={<PeopleIcon />}
-          />
-          <BottomNavigationAction
-            label="Занятия"
-            value="lessons"
-            icon={<SchoolIcon />}
-          />
-          <BottomNavigationAction
-            label="Платежи"
-            value="payments"
-            icon={<PaymentIcon />}
-          />
-          <BottomNavigationAction
-            label="Статистика"
-            value="statistics"
-            icon={<BarChartIcon />}
-          />
-        </BottomNavigation>
+        {isMobile && (
+          <BottomNavigation
+            value={currentPage}
+            onChange={handlePageChange}
+            showLabels
+            sx={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              bgcolor: 'background.paper',
+              borderTop: 1,
+              borderColor: 'divider',
+              '& .MuiBottomNavigationAction-root': {
+                minWidth: 'auto',
+                p: 1
+              }
+            }}
+          >
+            <BottomNavigationAction
+              label="Ученики"
+              value="students"
+              icon={<PeopleIcon />}
+            />
+            <BottomNavigationAction
+              label="Занятия"
+              value="lessons"
+              icon={<SchoolIcon />}
+            />
+            <BottomNavigationAction
+              label="Платежи"
+              value="payments"
+              icon={<PaymentIcon />}
+            />
+            <BottomNavigationAction
+              label="Статистика"
+              value="statistics"
+              icon={<BarChartIcon />}
+            />
+          </BottomNavigation>
+        )}
       </Box>
     </ThemeProvider>
   );

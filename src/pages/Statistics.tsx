@@ -1,240 +1,174 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Grid,
-  Paper,
+  Card,
+  CardContent,
   Typography,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Button,
+  Grid,
+  useMediaQuery,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import { db } from '../db';
-import { Payment, Lesson } from '../types';
-import { formatCurrency } from '../utils/format';
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import { theme } from '../theme';
+import { Student, Lesson, Payment } from '../types';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
+interface StudentStats {
+  name: string;
+  totalLessons: number;
+  completedLessons: number;
+  cancelledLessons: number;
+  totalPaid: number;
+  averageCost: number;
+}
 
-type Period = 'week' | 'month' | 'year';
-
-export default function Statistics() {
-  const [period, setPeriod] = useState<Period>('month');
-  const [payments, setPayments] = useState<Payment[]>([]);
+const Statistics: React.FC = () => {
+  const [statistics, setStatistics] = useState({
+    totalIncome: 0,
+    totalLessons: 0,
+    averageLessonCost: 0
+  });
+  const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [totalIncome, setTotalIncome] = useState(0);
-  const [totalLessons, setTotalLessons] = useState(0);
-  const [averageLessonCost, setAverageLessonCost] = useState(0);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     loadData();
-  }, [period]);
+  }, []);
 
   const loadData = async () => {
-    const startDate = new Date();
-    switch (period) {
-      case 'week':
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case 'month':
-        startDate.setMonth(startDate.getMonth() - 1);
-        break;
-      case 'year':
-        startDate.setFullYear(startDate.getFullYear() - 1);
-        break;
+    try {
+      const [studentsRes, lessonsRes, paymentsRes] = await Promise.all([
+        fetch('/api/students'),
+        fetch('/api/lessons'),
+        fetch('/api/payments')
+      ]);
+
+      const studentsData = await studentsRes.json();
+      const lessonsData = await lessonsRes.json();
+      const paymentsData = await paymentsRes.json();
+
+      setStudents(studentsData);
+      setLessons(lessonsData);
+      setPayments(paymentsData);
+
+      const totalIncome = paymentsData.reduce((sum: number, payment: Payment) => sum + payment.amount, 0);
+      const totalLessons = lessonsData.length;
+      const averageLessonCost = totalLessons > 0 ? totalIncome / totalLessons : 0;
+
+      setStatistics({
+        totalIncome,
+        totalLessons,
+        averageLessonCost
+      });
+    } catch (error) {
+      console.error('Error loading statistics:', error);
     }
-
-    const [paymentsData, lessonsData] = await Promise.all([
-      db.payments.where('date').above(startDate).toArray(),
-      db.lessons.where('date').above(startDate).toArray(),
-    ]);
-
-    setPayments(paymentsData);
-    setLessons(lessonsData);
-
-    const income = paymentsData.reduce((sum, payment) => sum + payment.amount, 0);
-    setTotalIncome(income);
-    setTotalLessons(lessonsData.length);
-    setAverageLessonCost(lessonsData.length > 0 ? income / lessonsData.length : 0);
   };
 
-  const generateChartData = () => {
-    const labels: string[] = [];
-    const data: number[] = [];
-    const today = new Date();
-    let startDate = new Date();
+  const getStudentStats = (): StudentStats[] => {
+    return students.map(student => {
+      const studentLessons = lessons.filter(lesson => lesson.studentId === student.id);
+      const studentPayments = payments.filter(payment => payment.studentId === student.id);
+      const totalPaid = studentPayments.reduce((sum, payment) => sum + payment.amount, 0);
+      const completedLessons = studentLessons.filter(lesson => lesson.status === 'completed').length;
+      const cancelledLessons = studentLessons.filter(lesson => lesson.status === 'cancelled').length;
 
-    switch (period) {
-      case 'week':
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          labels.push(date.toLocaleDateString('ru-RU', { weekday: 'short' }));
-          const dayPayments = payments.filter(
-            p => p.date.toDateString() === date.toDateString()
-          );
-          data.push(dayPayments.reduce((sum, p) => sum + p.amount, 0));
-        }
-        break;
-      case 'month':
-        for (let i = 29; i >= 0; i--) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          labels.push(date.toLocaleDateString('ru-RU', { day: 'numeric' }));
-          const dayPayments = payments.filter(
-            p => p.date.toDateString() === date.toDateString()
-          );
-          data.push(dayPayments.reduce((sum, p) => sum + p.amount, 0));
-        }
-        break;
-      case 'year':
-        for (let i = 11; i >= 0; i--) {
-          const date = new Date(today);
-          date.setMonth(date.getMonth() - i);
-          labels.push(date.toLocaleDateString('ru-RU', { month: 'short' }));
-          const monthPayments = payments.filter(
-            p => p.date.getMonth() === date.getMonth() &&
-                p.date.getFullYear() === date.getFullYear()
-          );
-          data.push(monthPayments.reduce((sum, p) => sum + p.amount, 0));
-        }
-        break;
-    }
-
-    return {
-      labels,
-      datasets: [
-        {
-          label: 'Доход',
-          data,
-          borderColor: 'rgb(75, 192, 192)',
-          tension: 0.1,
-        },
-      ],
-    };
-  };
-
-  const handleExportPDF = () => {
-    const doc = new jsPDF();
-    doc.text('Статистика', 14, 15);
-
-    const tableData = [
-      ['Период', period === 'week' ? 'Неделя' : period === 'month' ? 'Месяц' : 'Год'],
-      ['Общий доход', formatCurrency(totalIncome)],
-      ['Всего занятий', totalLessons.toString()],
-      ['Средняя стоимость занятия', formatCurrency(averageLessonCost)],
-    ];
-
-    (doc as any).autoTable({
-      startY: 20,
-      head: [['Параметр', 'Значение']],
-      body: tableData,
+      return {
+        name: `${student.firstName} ${student.lastName}`,
+        totalLessons: studentLessons.length,
+        completedLessons,
+        cancelledLessons,
+        totalPaid,
+        averageCost: completedLessons > 0 ? totalPaid / completedLessons : 0
+      };
     });
-
-    doc.save('statistics.pdf');
   };
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h4">Статистика</Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <FormControl sx={{ minWidth: 120 }}>
-            <InputLabel>Период</InputLabel>
-            <Select
-              value={period}
-              label="Период"
-              onChange={(e) => setPeriod(e.target.value as Period)}
-            >
-              <MenuItem value="week">Неделя</MenuItem>
-              <MenuItem value="month">Месяц</MenuItem>
-              <MenuItem value="year">Год</MenuItem>
-            </Select>
-          </FormControl>
-          <Button variant="contained" onClick={handleExportPDF}>
-            Экспорт PDF
-          </Button>
-        </Box>
-      </Box>
+    <Box sx={{ p: isMobile ? 1 : 2 }}>
+      <Typography variant="h5" gutterBottom>
+        Статистика
+      </Typography>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Общий доход
-            </Typography>
-            <Typography variant="h4">
-              {formatCurrency(totalIncome)}
-            </Typography>
-          </Paper>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={4}>
+          <Card elevation={2}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Общий доход
+              </Typography>
+              <Typography variant="h4">
+                {statistics.totalIncome.toLocaleString('ru-RU')} ₽
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Всего занятий
-            </Typography>
-            <Typography variant="h4">
-              {totalLessons}
-            </Typography>
-          </Paper>
+        <Grid item xs={12} sm={4}>
+          <Card elevation={2}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Всего занятий
+              </Typography>
+              <Typography variant="h4">
+                {statistics.totalLessons}
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Средняя стоимость занятия
-            </Typography>
-            <Typography variant="h4">
-              {formatCurrency(averageLessonCost)}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              График дохода
-            </Typography>
-            <Box sx={{ height: 400 }}>
-              <Line
-                data={generateChartData()}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: 'top' as const,
-                    },
-                    title: {
-                      display: true,
-                      text: 'Динамика дохода',
-                    },
-                  },
-                }}
-              />
-            </Box>
-          </Paper>
+        <Grid item xs={12} sm={4}>
+          <Card elevation={2}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Средняя стоимость
+              </Typography>
+              <Typography variant="h4">
+                {statistics.averageLessonCost.toLocaleString('ru-RU')} ₽
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
+
+      <Paper elevation={2} sx={{ overflow: 'auto' }}>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Ученик</TableCell>
+                <TableCell align="right">Всего занятий</TableCell>
+                <TableCell align="right">Завершено</TableCell>
+                <TableCell align="right">Отменено</TableCell>
+                <TableCell align="right">Оплачено</TableCell>
+                <TableCell align="right">Средняя стоимость</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {getStudentStats().map((stats) => (
+                <TableRow key={stats.name}>
+                  <TableCell>{stats.name}</TableCell>
+                  <TableCell align="right">{stats.totalLessons}</TableCell>
+                  <TableCell align="right">{stats.completedLessons}</TableCell>
+                  <TableCell align="right">{stats.cancelledLessons}</TableCell>
+                  <TableCell align="right">
+                    {stats.totalPaid.toLocaleString('ru-RU')} ₽
+                  </TableCell>
+                  <TableCell align="right">
+                    {stats.averageCost.toLocaleString('ru-RU')} ₽
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
     </Box>
   );
-} 
+};
+
+export default Statistics; 
